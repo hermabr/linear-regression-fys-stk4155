@@ -84,39 +84,55 @@
 
 \begin{abstract}
     % TODO: ADD ACTUAL FINDINGS
-    In this paper the we will study three linear regression methods, more precisely the ordinary least squares (OLS) regression, Ridge regression and Lasso regression, for sampeling both the Franke Function and for real terrain data. 
+    In this article the we will study three linear regression methods, more precisely the ordinary least squares (OLS) regression, Ridge regression and Lasso regression, for sampeling both the Franke Function and for real terrain data. 
 
-    The main findings are that linear regression models can be very powerful, being able to fit complex data with the ability to save models much more efficiently than that of saving the data raw.
+    For accessing the performance of the models, we have calculated mean squared error (MSE), R2 scores, bias and variance using bootstrap and looked at k-fold cross validation and bootstrap as resampeling techniques.
 
-    Among the three linear regression models tested, ridge regression seems to perform the best for both data sets.
+    The goals for the project were to check which model has the best and most stable performance.
+
+    The main findings are that linear regression models can be very powerful, being able to fit complex data with the ability to save models much more space efficiently than that of saving the data raw.
+
+    Among the three linear regression models tested, ridge regression seems to have the best performance, but this does not mean it is always the correct or best choice.
 \end{abstract}
 
 \section{Introduction}
 
+In data science and statistics, one of the main aims is to explain or predict some output based on some input. This is done by fitting a model which one hopes will fit the underlying data. One such method is linear regression.
+
 In linear regression, we try to approximate a model for the relationship between some input and output data using linear parameters.
 The main usecases of linear regression are for predicting the behaviour of new data, or to analyse the correlation between the input and the output, or between different inputs.
-In this paper, we will mainly look at linear regression with the goal of prediction.
+In this article, we will mainly look at linear regression with the goal of prediction.
 
 When we use linear regression, we want to find the "best" parameters for mapping the input data to some output, but depending on our needs, the "best" parameters might not always be the same, nor is there any clear "best" method of linear regression.
+It is therefore essential to find a good method for finding these parameters.
 % TODO: Examples?
+Three popular methods of linear regression are OLS, ridge regression and lasso regression.
+For all three methods we find our parameters by optimizing cost functions.
+The difference lies in how these cost functions are defined.
+These methods will be discussed in much more detail in the rest of the article.
 
-% TODO: Our application
+The article also aims to explore different means of resampeling to use the data more efficiently. The two resampeling techniques used in this article are bootstrapping and k-fold cross-validation.
 
-% TODO: Summary of what this paper contains
+After the theory follows a part on how the code for the project has been implemented and a more detailed discussion of the data.
+% The two dataset we use are generated from the franke function, where we have an analytical solution, while the other dataset comes from real world terrain data \cite{webpage}.
+
+Following the implementation details, there next part of the article seeks to access the theory discussed by testing the code thoroughly and with a discussion on the findings.
+
+The last part of the article contains a conclusion, which sums up the most important findings and reflects on shortcomings of this article.
 
 \section{Methods}
 
 \subsection{Linear regression}
 
-% TODO: Define what N and M are, maybe rename M to p
-We want to model the relationship between the explanatory variables $\{x_{ij}\}$ where $1\leq i \leq N$ and $1 \leq j \leq M$ and response variables $\{y_i\}_{i=1...N}$.
+We want to model the relationship between explanatory variables $\{x_{ij}\}$ where $1\leq i \leq N$ and $1 \leq j \leq P$ and response variables $\{y_i\}_{i=1...N}$.
+Here $N$ is the number of observations in our dataset, while $P$ is the number of variables per observation.
 We assume that the relationship between $x_i$ and $y_i$ can be modeled by the following relationship
 
 \begin{equation}
     y = f(x) + \varepsilon
 \end{equation}
 
-we asssume that the relationship between $x$ and $y$ is linear and that $\varepsilon$ is normally distributed with mean 0 and variance $\sigma^2$.
+we also asssume that the relationship between $x$ and $y$ is linear and that $\varepsilon$ is normally distributed with mean 0 and variance $\sigma^2$.
 
 % If these assumptions hold, we can try to fit some $g$ to resemble $f$ as closely as possible.
 A prediction of $\tilde{y}_i$ based on an observation $x_i$ can thus be performed using the following equation
@@ -132,8 +148,6 @@ Our aim is therefore to find the best method for approximating $\bbeta$.
 
 \subsubsection{Design matrix}
 
-% Vermonde matrix
-
 We have seen that we need some matrix $X$ when we do linear regression.
 This matrix is called the design matrix. Say we only had one explanatory variable $\{x_i\}_{i=1...N}$.
 We could populate $X$ with only these values, meaning
@@ -147,6 +161,7 @@ $X=\begin{pmatrix}
 A good example of this is if we wanted to predict the volume of a sphere if we only knew the radius.
 We are not able to capture the formula for the volume if we use the design matrix specified above,
 but if we instead use $\mathcal{P}_n$, we would get
+
 $X=\begin{pmatrix}
     1 & x_1 & x_1^2 & ... & x_1^n \\   
     1 & x_2 & x_2^2 & ... & x_2^n \\   
@@ -155,9 +170,19 @@ $X=\begin{pmatrix}
     1 & x_N & x_{N-1}^2 & ... & x_N^n \\   
 \end{pmatrix}$.
 
-In the case with the sphere, if the degree of the polynomials were up to degree 4, we would be able to capture the actual formula for the volume of a sphere, with $X_i=(1\ x_i\ x_i^2\ x_i^3)$ and $\bbeta=(0\ 0\ 0\ \frac{4\pi}{3})^T$
+In the case with the sphere, if the degree of the polynomials were up to degree 4, we would be able to capture the actual formula for the volume of a sphere, with $X_i=(1\ x_i\ x_i^2\ x_i^3)$ and $\bbeta=(0\ 0\ 0\ \frac{4\pi}{3})^T$.
+Note that even though the $X_i$ are not all of degree 1, this is still a linear relationship, since the betas are linear.
 
-% TODO: Do I want to expain that it is still linear?
+For both the franke function and the terrain data, we have two input variables. This means that the design matrix $X$ needs to contain both $x$ and $y$ values. We do this by pairing all degrees of $x$ and $y$ up to the given degree $n$.
+In our case that would mean that our design matrix would look like
+
+$X=\begin{pmatrix}
+    1 & x_1 & y_1 &  ... & x_1^{p}y_0^{p-i} \\   
+    1 & x_2 & y_2 &  ... & x_2^{p}y_1^{p-i} \\   
+    \vdots & \vdots & \vdots & \vdots & \vdots\\   
+    1 & x_{N-1} & y_{N-1} &  ... & x_{N-1}^{p}y_{N-1}^{p-i} \\   
+    1 & x_{N} & y_{N} &  ... & x_{N}^{p}y_{N}^{p-i} \\   
+\end{pmatrix}$
 
 \subsubsection{Ordinary least squares}
 
@@ -165,11 +190,9 @@ The ordinary least squares algorithm estimates $\bbeta$ from the explanatory var
 Least squares is a method of minimizing the sum of sqares between the response variables and the explanatory variables.
 In other words, we want to minimize the cost function $C(\bbeta)=||y - X\bbeta||_2=(y-X \bbeta)^T(y-X\bbeta)$.
 
-This difference is minimized then $\frac{\partial C(\bbeta)}{\partial \bbeta} = 0$. We calculate
+The notation $||\cdot||_2$ means the $L_2$ norm, which is defined as $||\vec{x}||_2=\sqrt{x_1^2+x_2^2+...}$.
 
-% TODO: Include step of expanding C?
-% TODO: Write as fancy minimization? https://compphysics.github.io/MachineLearning/doc/LectureNotes/_build/html/chapter1.html#linear-regression-basic-elements
-% TODO: Define the 2-norm?
+The cost function is minimized then $\frac{\partial C(\bbeta)}{\partial \bbeta} = 0$. We calculate
 
 \begin{equation}\label{eq:cost_ols_differentiated}
     \frac{\partial C(\bbeta)}{\partial \bbeta} = -2 X^T Y + 2 X^T X \bbeta = -2 X^T (y - X \bbeta)
@@ -177,16 +200,11 @@ This difference is minimized then $\frac{\partial C(\bbeta)}{\partial \bbeta} = 
 
 we set this to zero to obtain an estimate for $\bbeta$
 
-% TODO: Why beta hat not beta
-
 \begin{equation}\label{eq:optimal_beta_ols}
     -2 X^T (y - X \bbeta) = 0 \iff X^T Y = X^T X \bbeta \iff \bbeta = (X^T X)^{-1} X^T Y
 \end{equation}
 
-% TODO: What if linear dependent?
 this means that if we use this estimate of $\bbeta$, we will have the optimal solution with respect to the $L^2$ norm.
-
-% TODO: How is the ols calculated?
 
 We want to find the expectation and variance for the OLS, to know if the model is unbiased, and to get some impression of the variance, and to be able to construct confidence intervals.
 
@@ -202,12 +220,17 @@ this means that OLS will give us an unbiased estimate of $\bbeta$.
 
 We also have the variance $Var(\bbeta)=\sigma^2 (X^TX)^{-1}$ and estimate for the j-th regression coefficient is $\sigma^2(\bbeta_j)=\sigma^2 \sqrt{[(\hes)^{-1}]_jj}$
 
-% TODO: Confidence interval
-% TODO: Write about MVUE, minimum-variance unbiased estimator, source for OLS is MVUE, maybe only blue (best linear unbiased estimator)
+Obtaining the variance for the individual betas means that we can find the confidence intervals for the betas.
+Confidence intervals can be used to give an idea of how certain we are that a given beta has the correct value \cite{lecture notes two}.
+
+The confidence intervals are calculated by $\bbeta \pm X \sigma(\bbeta)$ where X is the value for the confidence interval. This would be $Z$ if we assume normal distribution for instance.
+
+Another thing to note is that an OLS method will always yield the best possible betas for minimizing the training data for a given degree, if we require linear regression.
+This does however not mean that it is always the best model, since good performance on the training data does not automatically mean that it will generalize to new data.
 
 \subsubsection{Ridge regression}
 
-Even tough we have seen that OLS is MVUE, % TODO: MVUE OR BLUE?
+Even tough we have seen that OLS has the best MSE performance for a given degree,
 is does not mean that it is always the correct linear regression method to use.
 
 % TODO: Source for regularization?
@@ -217,13 +240,11 @@ One such method is ridge regression.
 In ridge regression, we introduce a regularization parameter $\lambda$ to get the new cost function
 
 \begin{equation}\label{eq:ridge_cost}
-    C(\bbeta)=(y-X\bbeta)^T(y-X\bbeta) + \lambda \bbeta^T\bbeta
+    % C(\bbeta)=(y-X\bbeta)^T(y-X\bbeta) + \lambda \bbeta^T\bbeta
+    C(\bbeta)=|||y - X \bbeta||_2 + \lambda || \bbeta||_2
 \end{equation}
 
-% TODO: Write below in math and more clear
 we again minimize the derivative of the cost function
-
-% TODO: ...
 
 and obtain an estimate for $\bbeta$ as following
 
@@ -231,7 +252,7 @@ and obtain an estimate for $\bbeta$ as following
     \bbeta=(\hes + \lambda I)^{-1} X^T y
 \end{equation}
 
-% TODO: Add: We will come back to if this is smart in the bias-variance section?
+\cite{texbook}
 
 \subsubsection{Lasso regression}
 
@@ -245,7 +266,40 @@ Another method of regularization is lasso regression. Here, the cost function is
     C(\bbeta)=||y-X\bbeta||_2^2+\lambda ||\bbeta||_1
 \end{equation}
 
+Here the penalty term for $\bbeta$ is in the $L_1$ norm. This means that we do not have an analytical solution for lasso regression, and we are forced to find the $\bbeta$ parameters in another way.
+In this report we have not focused on this optimization, and have left the optimization to Scikit-learn.
 % TODO: Why we aint got no closed formula? :(
+
+\subsection{Model accessment}
+
+Knowing how the parameters are obtained from different methods of linear regression is useful, but for practical usecases, we want a model which performs well, not one which looks fancy or has a fancy name.
+That means that it is essential to find metrics to access the performance.
+
+One obvious metric is to use mean squared error.
+Here, the square loss between actual and predicted values are summed up, with a lower MSE meaning the model fits the data more closely.
+
+\begin{equation}
+    MSE(y, \tilde{y})=\sqrt{\sum_{i=0}^{n} (y_i-\tilde{y}_i)^2}
+\end{equation}
+
+Another measurement is $R^2$ score. Higher score means that the correlation between the input and output is higher. $R^2$ is defined as
+
+\begin{equation}
+    R^2(y, \tilde{y}) = 1 - \frac{\sum_{i=0}^{n}(y_i-\tilde{y}_i)^2}{\sum_{i=0}^{n}(y_i-\sum_{j=0}^n(y_j))^2}
+\end{equation}
+
+Both MSE and $R^2$ can be good indicators of the quality of the model.
+There is however one major drawback with both approaches:
+
+Neither MSE nor $R^2$ have any form of penalty on more complex models, meaning that if the model selection is not done on another dataset than the one used for training, a more complex model will always be selected over a simpler one.
+One way of avoiding this is by using another metric, for instance using adjusted $R^2$. Adjusted $R^2$ is defined as
+
+\begin{equation}
+    \bar{R}^2=1-(1-R^2)\frac{n-1}{n-p-1}
+\end{equation}
+
+Here, increasing the degree $p$ will lower the score.
+Even though adjusted $R^2$ has some advantages over $R^2$, this report has focused on the normal $R^2$ and MSE for model assesment, in addition to bias and variance.
 
 % TODO: Talk about how to estimate confidence intervals
 % TODO: Talk about MSE and R^2 (and adjusted R^2)
@@ -278,13 +332,10 @@ If we look at the expectation of the square difference between $y$ and $\tilde{y
 
 \vspace{-1em}
 
-% TODO: Fixy
-% TODO: move to appendix
 \begin{equation}
  E\left((f - \tilde{y})^2\right) = Bias(\tilde{y})^2+\sigma^2+Var\left(\tilde{y}\right)\\
 \end{equation}
 
-% TODO: Should be done element wise
 % TODO: MSE is basically taking the mean of the bias and the variance
 % TODO: Describe what sigma^2 is
 
@@ -299,7 +350,7 @@ In parametric bootstrapping, you make assumptions on how the data was generated,
 Parametric bootstrapping is most often used if the model is known, but where it is hard calculate some data % TODO: Replace data with soomething beter
 , for instance the variance.
 In this case, parametric bootstrap could be used to estimate the confidence interval.
-This approach is less used and will not be discussed further in this paper. % TODO: Not relevant for our case?
+This approach is less used and will not be discussed further in this article. % TODO: Not relevant for our case?
 
 % TODO: Replace data and write better
 For non-parametric bootstrapping, you make no assumptions on how the observations are distributed.
@@ -340,16 +391,13 @@ This is an abstract class which houses some methods which all the classes use, l
 
 There is also one file for generating and loading the data used by the regression models (data\_generation.py), one for plotting and saving plots (plotter.py) and one used to run the other methods and generate the output (run.py).
 
-% TODO: Add testing?
-
-
 \subsection{Data}
 
 % TODO: General discussion of the two data sources
 
 The fit parameters $\bbeta$, one need a dataset.
 Even though the core principles of linear regression remain the same, different models and complexities will yield different results for different datasets.
-To get a more deep understanding of the advantages and limitasions of linear regression, and different implementations, this paper will use two different datasets: The franke function and real world terrain data.
+To get a more deep understanding of the advantages and limitasions of linear regression, and different implementations, this article will use two different datasets: The franke function and real world terrain data.
 
 For all the data, we have first scaled the data to be between 0 and 1, and then subtracted the mean.
 This means that $\beta_0$ should be equal to $0$.
@@ -385,11 +433,12 @@ The big advantage of working with an analytical solution like the franke functio
     \label{fig:franke_function}
 \end{figure}
 
+One the right hand plot we have added noise. This is done to make the training data more exiting. For this and all other noisy franke functions, the noise was generated from a normal distrubution with $\mu=0$, $\sigma^2=0.2$.
 % TODO: Talk bout da noise
 
 \subsubsection{Real world terrain data}
 
-The second data that will be used in this paper is real world terrain data from an area in Norway. % TODO: WHERE?
+The second data that will be used in this article is real world terrain data from an area in Norway. % TODO: WHERE?
 
 In this case we do not have an analytical solution, to generate more data from, like we did for the franke function.
 
@@ -400,7 +449,6 @@ One reason could be to represent the terrain more efficiently. Instead of saving
 
 Another reason why doing this regression analysis could be useful, would be if we wanted to approximate the height for locations not directly measured by the real world data captre.
 
-% TODO: Add the plot for the real world data
 % TODO: Why have we used such little data?
 
 \begin{figure}[H]
@@ -454,13 +502,9 @@ Therefore, I have choosen to use the already implemented lasso version from scik
 
 Where the fitting procedure was different for the three methods, the predictions were a lot more similar.
 
-% TODO: Note how X*\beta=y
-
-\subsubsection{Bootstrap}
-% TODO: THIS
-
-\subsubsection{K-fold cross-validation}
-% TODO: THIS
+\begin{lstlisting}[language=python]
+z_tilde = self.beta @ X.T
+\end{lstlisting}
 
 \section{Results and discussion}
 
